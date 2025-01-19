@@ -118,6 +118,10 @@ class Illumination_Estimator(nn.Module):
         x_1 = self.conv1(input)
         illu_fea = self.depth_conv(x_1)
         illu_map = self.conv2(illu_fea)
+
+        #添加残差链接
+        illu_map = img + illu_map
+
         return illu_fea, illu_map
 
 
@@ -324,7 +328,11 @@ class Denoiser(nn.Module):
 class RetinexFormer_Single_Stage(nn.Module):
     def __init__(self, in_channels=3, out_channels=3, n_feat=31, level=2, num_blocks=[1, 1, 1]):
         super(RetinexFormer_Single_Stage, self).__init__()
+        
         self.estimator = Illumination_Estimator(n_feat)
+
+        # 添加额外信息作为输入
+
         self.denoiser = Denoiser(in_dim=in_channels,out_dim=out_channels,dim=n_feat,level=level,num_blocks=num_blocks)  #### 将 Denoiser 改为 img2img
     
     def forward(self, img):

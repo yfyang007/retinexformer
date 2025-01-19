@@ -44,8 +44,8 @@ datasets:
   val:
     name: ValSet
     type: Dataset_PairedImage
-    dataroot_gt: data/NTIRE/mini_val/target
-    dataroot_lq: data/NTIRE/mini_val/input
+    dataroot_gt: /data1/yyf/data4lowlight/cvpr/mini_val/gt
+    dataroot_lq: /data1/yyf/data4lowlight/cvpr/mini_val/input
     io_backend:
       type: disk
 

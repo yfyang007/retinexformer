@@ -45,4 +45,5 @@ def dynamic_instantiation(modules, cls_type, opt):
 def define_network(opt):
     network_type = opt.pop('type')
     net = dynamic_instantiation(_arch_modules, network_type, opt)
+    # 这里好像动态实例化模型为什么就可以forward
     return net
