@@ -20,7 +20,7 @@ class Dataset_PairedImage(data.Dataset):
 
     Read LQ (Low Quality, e.g. LR (Low Resolution), blurry, noisy, etc) and
     GT image pairs.
-
+    
     There are three modes:
     1. 'lmdb': Use lmdb files.
         If opt['io_backend'] == lmdb.
@@ -90,6 +90,7 @@ class Dataset_PairedImage(data.Dataset):
         img_bytes = self.file_client.get(gt_path, 'gt')
         try:
             img_gt = imfrombytes(img_bytes, float32=True)
+            # print(img_gt,'###########################')
         except:
             raise Exception("gt path {} not working".format(gt_path))
 

@@ -128,8 +128,8 @@ def get_position_from_periods(iteration, cumulative_period):
     Returns:
         int: The position of the right-closest number in the period list.
     """
-    import pdb
-    pdb.set_trace()
+    # import pdb
+    # pdb.set_trace()
     for i, period in enumerate(cumulative_period):
         if iteration <= period:
             return i
@@ -221,7 +221,7 @@ class CosineAnnealingRestartCyclicLR(_LRScheduler):
     def get_lr(self):
         idx = get_position_from_periods(self.last_epoch,
                                         self.cumulative_period)
-        print(idx , self.restart_weights)
+        # print(idx , self.restart_weights)
         current_weight = self.restart_weights[idx]
         nearest_restart = 0 if idx == 0 else self.cumulative_period[idx - 1]
         current_period = self.periods[idx]

@@ -100,7 +100,8 @@ def create_train_val_dataloader(opt, logger):  #train loader 和 val loader 一�
         # stx()
         if phase == 'train':
             dataset_enlarge_ratio = dataset_opt.get('dataset_enlarge_ratio', 1)
-            train_set = create_dataset(dataset_opt)                                 #将option中的dataset参数传入create_dataset中构建train_set
+            train_set = create_dataset(dataset_opt)                             #将option中的dataset参数传入create_dataset中构建train_set
+            # print(len(train_set))
             # stx()
             train_sampler = EnlargedSampler(train_set, opt['world_size'],
                                             opt['rank'], dataset_enlarge_ratio)     #缺少关键字 world_size 和 rank，train_sampler是做什么？从get_dist_info得到
@@ -191,6 +192,7 @@ def main():
     # create train and validation dataloaders
     result = create_train_val_dataloader(opt, logger)
     train_loader, train_sampler, val_loader, total_epochs, total_iters = result
+    # print(len(train_loader),'###################')
 
     # create model
     if resume_state:  # resume training
@@ -256,6 +258,7 @@ def main():
         train_sampler.set_epoch(epoch)
         prefetcher.reset()
         train_data = prefetcher.next()
+        # print(train_data)
         
         while train_data is not None:
             data_time = time.time() - data_time
