@@ -24,6 +24,8 @@ from basicsr.utils.options import dict2str, parse
 import numpy as np
 
 from pdb import set_trace as stx
+from collections import OrderedDict
+import re
 
 def parse_options(is_train=True):
     parser = argparse.ArgumentParser()
@@ -34,9 +36,16 @@ def parse_options(is_train=True):
         choices=['none', 'pytorch', 'slurm'],
         default='none',
         help='job launcher')
+    parser.add_argument(
+        '--pretrained_weights',
+        type=str,
+        
+    )
     parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()
     opt = parse(args.opt, is_train=is_train)
+    pretrained_weights = args.pretrained_weights
+    
 
     # distributed settings
     if args.launcher == 'none':
@@ -59,8 +68,26 @@ def parse_options(is_train=True):
         opt['manual_seed'] = seed
     set_random_seed(seed + opt['rank'])
 
-    return opt
+    return opt ,pretrained_weights
 
+def freeze_model_layers(model, freeze_layers):
+    """Freeze specific layers of the model for fine-tuning."""
+    for name, param in model.named_parameters():
+        if any(layer in name for layer in freeze_layers):
+            param.requires_grad = False
+            print(f"Freezing layer: {name}")
+        else:
+            print(f"Training layer: {name}")
+
+
+def load_pretrained_weights(model, pretrained_path):
+    """Load pretrained weights for the model."""
+    if osp.exists(pretrained_path):
+        state_dict = torch.load(pretrained_path, map_location='cpu')
+        model.load_state_dict(state_dict, strict=False)
+        print(f"Loaded pretrained weights from: {pretrained_path}")
+    else:
+        print(f"Pretrained path does not exist: {pretrained_path}")
 
 def init_loggers(opt):
     log_file = osp.join(opt['path']['log'],
@@ -91,7 +118,6 @@ def init_loggers(opt):
     if opt['logger'].get('use_tb_logger') and 'debug' not in opt['name']:
         tb_logger = init_tb_logger(log_dir=osp.join('tb_logger', opt['name']))
     return logger, tb_logger
-
 
 def create_train_val_dataloader(opt, logger):  #train loader 和 val loader 一起构建
     # create train and val dataloaders
@@ -149,34 +175,36 @@ def create_train_val_dataloader(opt, logger):  #train loader 和 val loader 一�
 
 
 def main():
+    import os
+    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
     # parse options, set distributed setting, set ramdom seed
-    opt = parse_options(is_train=True)
+    opt,pretrained_weights= parse_options(is_train=True)
     
     torch.backends.cudnn.benchmark = True
     # torch.backends.cudnn.deterministic = True
 
     # automatic resume ..
-    state_folder_path = 'experiments/{}/training_states/'.format(opt['name']) #状态路径
-    import os
-    try:
-        states = os.listdir(state_folder_path)
-    except:
-        states = []
+    # state_folder_path = 'experiments/{}/training_states/'.format(opt['name']) #状态路径
+    # import os
+    # try:
+    #     states = os.listdir(state_folder_path)
+    # except:
+    #     states = []
 
     resume_state = None
-    if len(states) > 0: #如果路径已存在
-        max_state_file = '{}.state'.format(max([int(x[0:-6]) for x in states]))
-        resume_state = os.path.join(state_folder_path, max_state_file)
-        opt['path']['resume_state'] = resume_state
+    # if len(states) > 0: #如果路径已存在
+    #     max_state_file = '{}.state'.format(max([int(x[0:-6]) for x in states]))
+    #     resume_state = os.path.join(state_folder_path, max_state_file)
+    #     opt['path']['resume_state'] = resume_state
 
     # load resume states if necessary，resume_state是重新训练的时候接上的吗？
-    if opt['path'].get('resume_state'):
-        device_id = torch.cuda.current_device()
-        resume_state = torch.load(
-            opt['path']['resume_state'],
-            map_location=lambda storage, loc: storage.cuda(device_id))
-    else:
-        resume_state = None
+    # if opt['path'].get('resume_state'):
+    #     device_id = torch.cuda.current_device()
+    #     resume_state = torch.load(
+    #         opt['path']['resume_state'],
+    #         map_location=lambda storage, loc: storage.cuda(device_id))
+    # else:
+    #     resume_state = None
 
     # mkdir for experiments and logger
     if resume_state is None:
@@ -209,6 +237,25 @@ def main():
         logger.info(f'best psnr: {best_psnr} from iteration {best_iter}')
     else:
         model = create_model(opt)
+        # stx()
+        checkpoint = torch.load(pretrained_weights,map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+
+        # 处理 state_dict 的键名前缀
+        model_dict = OrderedDict()
+        pattern = re.compile('module.')
+        for k, v in checkpoint['params'].items():
+            if re.search("module", k):
+                model_dict[re.sub(pattern, '', k)] = v
+            else:
+                model_dict = checkpoint['params']
+        # 冻结 Illumination_Estimator
+            for param in model.net_g.module.body[0].estimator.parameters():
+                param.requires_grad = False
+
+            # 冻结 encoder_layers 的第一层
+            for param in model.net_g.module.body[0].denoiser.encoder_layers[0].parameters():
+                param.requires_grad = False
+
         start_epoch = 0
         current_iter = 0
         best_metric = {'iter': 0}
@@ -304,6 +351,12 @@ def main():
                 gt = gt[:, :, x0 * scale:x1 * scale, y0 * scale:y1 * scale]
             # -------------------------------------------
             # print(lq.shape)
+
+            for name, param in model.net_g.named_parameters():
+                if param.requires_grad and param.grad is not None:
+                    writer.add_histogram(f"gradients/{name}", param.grad, epoch)
+
+
             model.feed_train_data({'lq': lq, 'gt': gt})
             model.optimize_parameters(current_iter)
 
