@@ -114,7 +114,12 @@ class Dataset_PairedImage(data.Dataset):
             # flip, rotation augmentations
             if self.geometric_augs:
                 img_gt, img_lq = random_augmentation(img_gt, img_lq)
-            
+        # data4lowlight 
+        if img_gt.shape[0] != img_lq.shape[0]:
+            print(f'val img_gt shape {img_gt.shape} and img_lq shape {img_lq.shape}')
+            img_lq = img_lq[:img_gt.shape[0],:img_gt.shape[1],:]
+        # crop for different size 
+        
         # BGR to RGB, HWC to CHW, numpy to tensor
         img_gt, img_lq = img2tensor([img_gt, img_lq],
                                     bgr2rgb=True,

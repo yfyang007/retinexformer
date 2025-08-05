@@ -184,27 +184,27 @@ def main():
     # torch.backends.cudnn.deterministic = True
 
     # automatic resume ..
-    # state_folder_path = 'experiments/{}/training_states/'.format(opt['name']) #状态路径
-    # import os
-    # try:
-    #     states = os.listdir(state_folder_path)
-    # except:
-    #     states = []
+    state_folder_path = 'experiments/{}/training_states/'.format(opt['name']) #状态路径
+    import os
+    try:
+        states = os.listdir(state_folder_path)
+    except:
+        states = []
 
     resume_state = None
-    # if len(states) > 0: #如果路径已存在
-    #     max_state_file = '{}.state'.format(max([int(x[0:-6]) for x in states]))
-    #     resume_state = os.path.join(state_folder_path, max_state_file)
-    #     opt['path']['resume_state'] = resume_state
+    if len(states) > 0: #如果路径已存在
+        max_state_file = '{}.state'.format(max([int(x[0:-6]) for x in states]))
+        resume_state = os.path.join(state_folder_path, max_state_file)
+        opt['path']['resume_state'] = resume_state
 
     # load resume states if necessary，resume_state是重新训练的时候接上的吗？
-    # if opt['path'].get('resume_state'):
-    #     device_id = torch.cuda.current_device()
-    #     resume_state = torch.load(
-    #         opt['path']['resume_state'],
-    #         map_location=lambda storage, loc: storage.cuda(device_id))
-    # else:
-    #     resume_state = None
+    if opt['path'].get('resume_state'):
+        device_id = torch.cuda.current_device()
+        resume_state = torch.load(
+            opt['path']['resume_state'],
+            map_location=lambda storage, loc: storage.cuda(device_id))
+    else:
+        resume_state = None
 
     # mkdir for experiments and logger
     if resume_state is None:
@@ -352,9 +352,7 @@ def main():
             # -------------------------------------------
             # print(lq.shape)
 
-            for name, param in model.net_g.named_parameters():
-                if param.requires_grad and param.grad is not None:
-                    writer.add_histogram(f"gradients/{name}", param.grad, epoch)
+            
 
 
             model.feed_train_data({'lq': lq, 'gt': gt})
@@ -394,6 +392,9 @@ def main():
                     best_metric['iter'] = current_iter
                     model.save_best(best_metric)
                 if tb_logger:
+                    for name, param in model.net_g.named_parameters():
+                        if param.requires_grad and param.grad is not None:
+                            tb_logger.add_histogram(f"gradients/{name}", param.grad, epoch)
                     tb_logger.add_scalar(  # best iter
                         f'metrics/best_iter', best_metric['iter'], current_iter)
                     for k, v in opt['val']['metrics'].items():  # best_psnr

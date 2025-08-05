@@ -49,8 +49,18 @@ def paired_random_crop(img_gts, img_lqs, lq_patch_size, scale, gt_path):
     if not isinstance(img_lqs, list):
         img_lqs = [img_lqs]
 
-    h_lq, w_lq, _ = img_lqs[0].shape
-    h_gt, w_gt, _ = img_gts[0].shape
+    for i , img_lq in enumerate(img_lqs):
+        h_lq, w_lq, _ = img_lqs[i].shape
+        h_gt, w_gt, _ = img_gts[i].shape
+        # print(f' here is img_lq size:{img_lqs[i].shape} and img_gts size:{img_gts[i].shape}')
+
+        # crop for gt size > lq size :
+        if (w_lq - w_gt) <= 10 and (h_lq - h_gt) <= 10  :
+            # print(f'here to process the w_lq and w_gt is {h_lq} and {w_lq}')
+            img_lqs[i] = img_lqs[i][:h_gt,:w_gt,:]
+            h_lq, w_lq, _ = img_lqs[i].shape
+            # print(f'here is after to process the w_lq and w_gt is {h_lq} and {w_lq}')
+        # add crop 
     gt_patch_size = int(lq_patch_size * scale)
 
     if h_gt != h_lq * scale or w_gt != w_lq * scale:
@@ -94,8 +104,18 @@ def paired_random_crop_DP(img_lqLs, img_lqRs, img_gts, gt_patch_size, scale, gt_
     if not isinstance(img_lqRs, list):
         img_lqRs = [img_lqRs]
 
-    h_lq, w_lq, _ = img_lqLs[0].shape
-    h_gt, w_gt, _ = img_gts[0].shape
+    for i , img_lq in enumerate(img_lqs):
+        h_lq, w_lq, _ = img_lqs[i].shape
+        h_gt, w_gt, _ = img_gts[i].shape
+        # print(f' here is img_lq size:{img_lqs[i].shape} and img_gts size:{img_gts[i].shape}')
+
+        # crop for gt size > lq size :
+        if (w_lq - w_gt) <= 10 and (h_lq - h_gt) <= 10  :
+            # print(f'here to process the w_lq and w_gt is {h_lq} and {w_lq}')
+            img_lqs[i] = img_lqs[i][:h_gt,:w_gt,:]
+            h_lq, w_lq, _ = img_lqs[i].shape
+            # print(f'here is after to process the w_lq and w_gt is {h_lq} and {w_lq}')
+        # add crop 
     lq_patch_size = gt_patch_size // scale
 
     if h_gt != h_lq * scale or w_gt != w_lq * scale:

@@ -169,10 +169,96 @@ class ImageCleanModel(BaseModel):
             self.gt = data['gt'].to(self.device)
 
     def optimize_parameters(self, current_iter):
+        # cat size for 
         self.optimizer_g.zero_grad()
+        
 
         with autocast(enabled=self.use_amp):
-            preds = self.net_g(self.lq)
+            # def get_patch_coords(input_size, patch_size, stride):
+            #     """生成补丁起始坐标列表，自动处理边缘情况"""
+            #     coords = list(range(0, input_size - patch_size + 1, stride))
+                
+            #     # 添加最后一个补丁（如果需要）
+            #     if not coords or (coords[-1] + patch_size < input_size):
+            #         final_pos = max(0, input_size - patch_size)
+            #         if final_pos not in coords:
+            #             coords.append(final_pos)
+            #     return coords
+                            
+            # def split_image(input_tensor,patch_size = 1024 ,stride = 1024):
+            #     H, W = input_tensor.shape[2:]
+
+            #     # print(f'H is {H} and W is {W}')
+
+            #     # 生成坐标列表
+            #     x_coords = get_patch_coords(W, patch_size, stride)
+            #     y_coords = get_patch_coords(H, patch_size, stride)
+
+            #     # print(f'x_coords is {x_coords} and y_coords is {y_coords}')
+                
+            #     # 执行分块
+            #     patches = []
+            #     for y in y_coords:
+            #         for x in x_coords:
+            #             patch = input_tensor[:,:,y:y+patch_size, x:x+patch_size]
+            #             patches.append(patch)
+                
+            #     return patches, (x_coords, y_coords)
+            # lq_patches , coord_info = split_image(self.lq)
+            # from pdb import set_trace as stx
+            # stx()
+            # result_patches = []
+            # for lq_patch in lq_patches:
+            #     result_patches.append(self.net_g(lq_patch).cpu()) #先转到cpu上
+            #     # print(result_patches[-1].shape,"####################")
+
+            # def merge_patches(patches, original_shape, coord_info, patch_size=1024):
+            #     """合并分块图像，使用加权平均处理重叠区域"""
+            #     H, W = original_shape[2:]
+            #     C = patches[0].shape[1] if len(original_shape) > 2 else 1
+                
+            #     # 初始化合并矩阵和计数器
+            #     merged_image = torch.zeros((1,C,H,W),dtype=torch.float32).cpu()
+            #     count_matrix = torch.zeros_like(merged_image).cpu()
+                
+            #     x_coords, y_coords = coord_info
+            #     patch_idx = 0
+                
+            #     # 逐块累加
+            #     for y in y_coords:
+            #         for x in x_coords:
+            #             # 计算实际覆盖区域
+            #             actual_y_end = min(y + patch_size, H)
+            #             actual_x_end = min(x + patch_size, W)
+                        
+            #             # 获取当前补丁的视图
+            #             current_patch = patches[patch_idx]
+                        
+            #             # 计算有效区域
+            #             ph = actual_y_end - y
+            #             pw = actual_x_end - x
+            #             valid_patch = current_patch[:ph, :pw]
+                        
+            #             # 累加到合并图像
+            #             merged_image[:,:,y:actual_y_end, x:actual_x_end] += valid_patch
+            #             count_matrix[:,:,y:actual_y_end, x:actual_x_end] += 1
+            #             patch_idx += 1
+                
+            #     # 处理未覆盖区域（理论上不应该存在）
+            #     count_matrix = torch.maximum(count_matrix, torch.tensor(1, dtype=count_matrix.dtype, device=count_matrix.device))
+
+                
+            #     # 执行平均计算
+            #     merged_image = (merged_image / count_matrix)
+            #     print(merged_image.shape,'###############################',type(merged_image))
+            #     return merged_image.to(self.device)
+            # preds = merge_patches(result_patches,self.lq.shape,coord_info)
+            # from pdb import set_trace as stx
+            # stx()
+            preds= self.net_g(self.lq)
+            # from pdb import set_trace as stx
+            # stx()
+            print(f'preds shape is {preds.shape}')
             if not isinstance(preds, list):
                 preds = [preds]
 
@@ -228,9 +314,93 @@ class ImageCleanModel(BaseModel):
         else:
             self.net_g.eval()
             with torch.no_grad():
-                pred = self.net_g(img)
-            if isinstance(pred, list):
-                pred = pred[-1]
+                print(f'slice 4 tensor #######')
+                def get_patch_coords(input_size, patch_size, stride):
+                    """生成补丁起始坐标列表，自动处理边缘情况"""
+                    coords = list(range(0, input_size - patch_size + 1, stride))
+                    
+                    # 添加最后一个补丁（如果需要）
+                    if not coords or (coords[-1] + patch_size < input_size):
+                        final_pos = max(0, input_size - patch_size)
+                        if final_pos not in coords:
+                            coords.append(final_pos)
+                    return coords
+                                
+                def split_image(input_tensor,patch_size = 1024 ,stride = 512):
+                    H, W = input_tensor.shape[2:]
+
+                    print(f'H is {H} and W is {W}')
+
+                    # 生成坐标列表
+                    x_coords = get_patch_coords(W, patch_size, stride)
+                    y_coords = get_patch_coords(H, patch_size, stride)
+
+                    print(f'x_coords is {x_coords} and y_coords is {y_coords}')
+                    
+                    # 执行分块
+                    patches = []
+                    for y in y_coords:
+                        for x in x_coords:
+                            patch = input_tensor[:,:,y:y+patch_size, x:x+patch_size]
+                            patches.append(patch)
+                    
+                    return patches, (x_coords, y_coords)
+
+                img_patches , coord_info = split_image(img)
+                result_patches = []
+                for img_patch in img_patches :
+                    if isinstance(self.net_g(img_patch),list):
+                        result_patches.append(self.net_g(img_patch)[-1])
+                    else :
+                        result_patches.append(self.net_g(img_patch))
+
+                print(result_patches[-1].shape,'result_patch_###############')
+                
+                
+                def merge_patches(patches, original_shape, coord_info, patch_size=1024):
+                    """合并分块图像，使用加权平均处理重叠区域"""
+                    H, W = original_shape[2:]
+                    C = patches[0].shape[1] if len(original_shape) > 2 else 1
+                    
+                    # 初始化合并矩阵和计数器
+                    merged_image = torch.zeros((1,C,H,W),dtype=torch.float32).cuda()
+                    count_matrix = torch.zeros_like(merged_image).cuda()
+                    
+                    x_coords, y_coords = coord_info
+                    patch_idx = 0
+                    
+                    # 逐块累加
+                    for y in y_coords:
+                        for x in x_coords:
+                            # 计算实际覆盖区域
+                            actual_y_end = min(y + patch_size, H)
+                            actual_x_end = min(x + patch_size, W)
+                            
+                            # 获取当前补丁的视图
+                            current_patch = patches[patch_idx]
+                            
+                            # 计算有效区域
+                            ph = actual_y_end - y
+                            pw = actual_x_end - x
+                            valid_patch = current_patch[:ph, :pw]
+                            
+                            # 累加到合并图像
+                            merged_image[:,:,y:actual_y_end, x:actual_x_end] += valid_patch
+                            count_matrix[:,:,y:actual_y_end, x:actual_x_end] += 1
+                            patch_idx += 1
+                    
+                    # 处理未覆盖区域（理论上不应该存在）
+                    count_matrix = torch.maximum(count_matrix, torch.tensor(1, dtype=count_matrix.dtype, device=count_matrix.device))
+
+                    
+                    # 执行平均计算
+                    merged_image = (merged_image / count_matrix)
+                    print(merged_image.shape,'###############################',type(merged_image))
+                    return merged_image
+
+                pred = merge_patches(result_patches,img.shape,coord_info)
+            # if isinstance(pred, list):
+            #     pred = pred[-1]
             self.output = pred
             self.net_g.train()
 
